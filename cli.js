@@ -10,6 +10,7 @@ const region = argv.region || "us-east-1";
 const tag = argv.tag;
 const logFile = argv["log-file"] || "/var/log/**/*.log";
 const credentials = new AWS.SharedIniFileCredentials({ profile });
+
 console.log(`${profile} ${region} ${tag}`);
 
 function instanceToInstance(instance) {
@@ -37,15 +38,25 @@ async function getEC2Instances() {
   const {
     Reservations: reservations
   } = await ec2.describeInstances().promise();
-  const instances = _.flatten(_.map(reservations, res => res.Instances));
-  return _.map(instances, instanceToInstance);
+
+  return _(reservations)
+    .map(res => res.Instances || [])
+    .flatten()
+    .map(instanceToInstance)
+    .value();
 }
 
 async function filterInstancesByTag(instances, tag) {
-  return _.filter(instances, instance => {
+  function instanceHasTag(instance) {
     const tags = instance.tags || [];
-    return !_.isEmpty(_.filter(tags, _.matches({ Name: tag })));
-  });
+    return !_(tags)
+      .filter(_.matches({ Name: tag }))
+      .isEmpty();
+  }
+
+  return _(instances)
+    .filter(instanceHasTag)
+    .value();
 }
 
 // Basically https://gist.github.com/paulredmond/979798
