@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 
 const AWS = require("aws-sdk");
-const uuid = require("uuid");
 const _ = require("lodash");
 const argv = require("yargs").demandOption(["tag"]).argv;
 const { exec, spawn } = require("child_process");
-const shell = require("shelljs");
 
 const profile = argv.profile || "default";
 const region = argv.region || "us-east-1";
@@ -14,28 +12,32 @@ const logFile = argv["log-file"] || "/var/log/**/*.log";
 const credentials = new AWS.SharedIniFileCredentials({ profile });
 console.log(`${profile} ${region} ${tag}`);
 
-async function getInstances() {
-  let ec2 = new AWS.EC2({ credentials, region, apiVersion: "2016-11-15" });
+function instanceToInstance(instance) {
+  return {
+    clientToken: instance.ClientToken,
+    imageId: instance.ImageId,
+    instanceId: instance.InstanceId,
+    instanceType: instance.InstanceType,
+    keyName: instance.KeyName,
+    state: instance.State.Name,
+    publicIP: instance.PublicIpAddress,
+    tags: _.map(instance.Tags || [], tag => ({
+      [tag.Key]: tag.Value
+    })),
+    VPC: instance.VpcId
+  };
+}
 
-  let { Reservations: reservations } = await ec2.describeInstances().promise();
-  let instances = _.flatten(_.map(reservations, res => res.Instances));
-
-  function instanceToInstance(instance) {
-    return {
-      clientToken: instance.ClientToken,
-      imageId: instance.ImageId,
-      instanceId: instance.InstanceId,
-      instanceType: instance.InstanceType,
-      keyName: instance.KeyName,
-      state: instance.State.Name,
-      publicIP: instance.PublicIpAddress,
-      tags: _.map(instance.Tags || [], tag => ({
-        [tag.Key]: tag.Value
-      })),
-      VPC: instance.VpcId
-    };
-  }
-
+async function getEC2Instances() {
+  const ec2 = new AWS.EC2({
+    credentials,
+    region,
+    apiVersion: "2016-11-15"
+  });
+  const {
+    Reservations: reservations
+  } = await ec2.describeInstances().promise();
+  const instances = _.flatten(_.map(reservations, res => res.Instances));
   return _.map(instances, instanceToInstance);
 }
 
@@ -46,21 +48,17 @@ async function filterInstancesByTag(instances, tag) {
   });
 }
 
-function tailInstances(instances) {
+// Basically https://gist.github.com/paulredmond/979798
+function tailEC2Instances(instances) {
   const ips = _.map(instances, "publicIP");
-
-  // https://gist.github.com/paulredmond/979798
-  function writeData(host, data) {
-    console.log(host + ": " + data);
-  }
 
   function readData(host, data) {
     const lines = data.toString().split("\n");
-    for (let i = 0, len = lines.length; i < len; i++) {
-      if (lines[i].length > 0) {
-        writeData(host, lines[i]);
+    _.each(lines, line => {
+      if (lines.length > 0) {
+        console.log(`${host}: ${line}`);
       }
-    }
+    });
   }
 
   _.map(ips, server => {
@@ -72,8 +70,8 @@ function tailInstances(instances) {
   });
 }
 
-getInstances().then(async instances => {
+getEC2Instances().then(async instances => {
   const taggedInstances = await filterInstancesByTag(instances, tag);
 
-  tailInstances(taggedInstances);
+  tailEC2Instances(taggedInstances);
 });
