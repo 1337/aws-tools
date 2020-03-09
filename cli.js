@@ -1,43 +1,51 @@
 #!/usr/bin/env node
 
 const AWS = require("aws-sdk");
-const _ = require("lodash");
-const argv = require("yargs").demandOption(["tag"]).argv;
-const { spawn } = require("child_process");
-const { getEC2Instances, filterInstancesByTag } = require('./lib/ec2');
 
-const profile = argv.profile || "default";
-const region = argv.region || "us-east-1";
-const tag = argv.tag;
-const logFile = argv["log-file"] || "/var/log/**/*.log";
-const credentials = new AWS.SharedIniFileCredentials({ profile });
+const ec2 = require('./lib/ec2');
+const rds = require('./lib/rds');
+const {tailInstances} = require('./lib/shell');
 
-console.log(`${profile} ${region} ${tag}`);
 
-// Basically https://gist.github.com/paulredmond/979798
-function tailEC2Instances(instances) {
-  const ips = _.map(instances, "publicIP");
+function _tailEC2(profile, region, tag, logFile) {
+    console.log(`${profile} ${region} ${tag}`);
 
-  function readData(host, data) {
-    const lines = data.toString().split("\n");
-    _.each(lines, line => {
-      if (lines.length > 0) {
-        console.log(`${host}: ${line}`);
-      }
+    const credentials = new AWS.SharedIniFileCredentials({profile});
+    ec2.getInstances(credentials, region).then(instances => {
+        const taggedInstances = ec2.filterInstancesByTag(instances, tag);
+
+        tailInstances(taggedInstances, logFile);
     });
-  }
-
-  _.map(ips, server => {
-    const tail = spawn("ssh", [`ubuntu@${server}`, "tail", "-F", logFile]);
-
-    tail.stdout.on("data", (data) => {
-      readData(server, data);
-    });
-  });
 }
 
-getEC2Instances(credentials, region).then(async instances => {
-  const taggedInstances = filterInstancesByTag(instances, tag);
+const yargs = require('yargs');
+// Just copied from
+// https://github.com/yargs/yargs/issues/225#issuecomment-128532719
+// https://github.com/yargs/yargs/issues/225#issuecomment-206455415
+const argv = yargs
+    .usage('usage: $0 <command>')
+    .command('ec2', 'Access EC2 logs.', (yargs) => {
+        yargs.demandOption(["tag"]);
+        const argv = yargs.argv;
 
-  tailEC2Instances(taggedInstances);
-});
+        _tailEC2(
+            argv.profile || "default",
+            argv.region || "us-east-1",
+            argv.tag,
+            argv["log-file"] || "/var/log/**/*.log"
+        );
+    })
+    .command('rds', 'Access RDS logs.', (yargs) => {
+        var subYargs = yargs
+            .usage('usage: $0 rds <foo>')
+            .command('slowest-queries', 'Slowest queries', (yargs) => {
+                console.log('creating project :)');
+            })
+            .command('queries', 'Latest queries', (yargs) => {
+                console.log('creating module :)');
+            })
+            .demand(1, "must provide a valid subcommand");
+        return subYargs;
+    })
+    .demand(1, "Must provide a valid command")
+    .argv;
