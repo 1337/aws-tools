@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const AWS = require("aws-sdk");
+const _ = require("lodash");
 
 const ec2 = require('./lib/ec2');
 const rds = require('./lib/rds');
@@ -16,6 +17,49 @@ function _tailEC2(profile, region, tag, logFile) {
 
         tailInstances(taggedInstances, logFile);
     });
+}
+
+function _getRDSLogs(profile, region, instanceId) {
+    console.log(`${profile} ${region} ${instanceId}`);
+
+    const credentials = new AWS.SharedIniFileCredentials({profile});
+    return new Promise((resolve, reject) => {
+        rds.getDBLogs(
+            credentials,
+            region,
+            instanceId
+        ).then((logs) => {
+            console.log(logs);
+            resolve(logs);
+        }, (error) => {
+            reject(error);
+        });
+    });
+}
+
+function _downloadRDSLog(profile, region, instanceId, logFile) {
+    console.log(`${profile} ${region} ${instanceId}`);
+
+    const credentials = new AWS.SharedIniFileCredentials({profile});
+    rds.downloadDBLog(
+        credentials,
+        region,
+        instanceId,
+        logFile
+    ).then((logs) => {
+        console.log(logs);
+    });
+}
+
+async function _downloadRDSLogs(profile, region, instanceId) {
+    console.log(`${profile} ${region} ${instanceId}`);
+
+    const logs = await _getRDSLogs(profile, region, instanceId);
+    await Promise.all(
+        _.map(logs, (log) => {
+            return _downloadRDSLog(profile, region, instanceId, log);
+        })
+    );
 }
 
 const yargs = require('yargs');
@@ -36,16 +80,43 @@ const argv = yargs
         );
     })
     .command('rds', 'Access RDS logs.', (yargs) => {
-        var subYargs = yargs
+        return yargs
             .usage('usage: $0 rds <foo>')
+            .command('log-files', 'Get log file names.', (yargs) => {
+                yargs.demandOption(['instance-id']);
+                const argv = yargs.argv;
+                _getRDSLogs(
+                    argv.profile || "default",
+                    argv.region || "us-east-1",
+                    argv['instance-id']
+                );
+            })
+            .command('download-log', 'Download a file to /tmp/.', (yargs) => {
+                yargs.demandOption(['instance-id', 'log-file']);
+                const argv = yargs.argv;
+                _downloadRDSLog(
+                    argv.profile || "default",
+                    argv.region || "us-east-1",
+                    argv['instance-id'],
+                    argv['log-file'],
+                );
+            })
+            .command('download-logs', 'Download all logs to /tmp/.', async (yargs) => {
+                yargs.demandOption(['instance-id']);
+                const argv = yargs.argv;
+                await _downloadRDSLogs(
+                    argv.profile || "default",
+                    argv.region || "us-east-1",
+                    argv['instance-id']
+                );
+            })
             .command('slowest-queries', 'Slowest queries', (yargs) => {
+                yargs.demandOption(['instance-id']);
                 console.log('creating project :)');
             })
-            .command('queries', 'Latest queries', (yargs) => {
-                console.log('creating module :)');
-            })
-            .demand(1, "must provide a valid subcommand");
-        return subYargs;
+            .demand(1, "Must provide a valid subcommand.");
     })
-    .demand(1, "Must provide a valid command")
+    .demand(1, "Must provide a valid command.")
     .argv;
+
+_(argv);  // Wtf? If you don't access argv it doesn't work?
