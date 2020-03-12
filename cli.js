@@ -17,17 +17,22 @@ const argv = yargs
   .usage("usage: $0 (command)")
   .demand(1, "Must provide a valid command.")
   .command("ec2", "Access EC2 logs.", yargs => {
-    yargs.demandOption(["tag"]);
-    const argv = yargs.argv;
-    const adapter = new ec2.EC2Adapter(
-      argv.profile || DEFAULT_PROFILE,
-      argv.region || DEFAULT_REGION
-    );
+    return yargs
+      .usage("usage: $0 ec2")
+      .command("log-files", "Tail log files.", async yargs => {
+        yargs.demandOption(["tag"]);
+        const argv = yargs.argv;
+        const adapter = new ec2.EC2Adapter(
+          argv.profile || DEFAULT_PROFILE,
+          argv.region || DEFAULT_REGION
+        );
 
-    adapter.tailInstancesByTag(
-      argv.tag,
-      argv["log-file"] || "/var/log/**/*.log"
-    );
+        adapter.tailInstancesByTag(
+          argv.tag,
+          argv["log-file"] || "/var/log/**/*.log"
+        );
+      })
+      .demand(1, "Must provide a valid subcommand.");
   })
   .command("rds", "Access RDS logs.", yargs => {
     return yargs
