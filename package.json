@@ -9,7 +9,7 @@
   "author": "Brian",
   "license": "MIT",
   "engines": {
-    "node": ">=10.0 <12.0"
+    "node": ">=10.12 <12.0"
   },
   "bin": {
     "aws-tools": "./cli.js"
@@ -20,6 +20,7 @@
   ],
   "dependencies": {
     "aws-sdk": "^2.456.0",
+    "fs-extra": "^8.1.0",
     "lodash": "^4.17.11",
     "shelljs": "^0.8.3",
     "uuid": "^3.3.2",
