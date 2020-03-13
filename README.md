@@ -1,5 +1,23 @@
 # aws-tools
 
+## Install
+
+1. Be using node 10
+1. `npm install -g 1337/aws-tools`
+
+## Update
+
+1. `npm uninstall -g aws-tools`
+1. Install it again
+
+## DIY Update
+
+1. `git clone` this repo
+1. Be using node 10
+1. `npm link`
+
+## Usage
+
 ```shell script
 aws-tools ec2 \
     run-command \
