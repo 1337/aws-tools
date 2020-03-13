@@ -59,6 +59,20 @@ const argv = yargs
           adapter.runScriptByTag(argv.tag, argv._[2]);
         }
       )
+      .command(
+        "ssh-any",
+        "SSH into any of the instances with a specific tag.",
+        async yargs => {
+          yargs.demandOption(["tag"]);
+          const argv = yargs.argv;
+          const adapter = new ec2.EC2Adapter(
+            argv.profile || DEFAULT_PROFILE,
+            argv.region || DEFAULT_REGION
+          );
+
+          adapter.startSSHAny(argv.tag);
+        }
+      )
       .demand(1, "Must provide a valid subcommand.");
   })
   .command("rds", "Access RDS logs.", yargs => {

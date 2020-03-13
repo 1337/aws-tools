@@ -16,6 +16,12 @@ aws-tools ec2 \
     ~/Downloads/update_server.sh
 
 aws-tools ec2 \
+    ssh-any \
+    --profile default \
+    --region us-east-1 \
+    --tag default-web
+
+aws-tools ec2 \
     log-files \
     --profile default \
     --region us-east-1 \
