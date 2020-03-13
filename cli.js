@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 
 const _ = require("lodash");
+const yargs = require("yargs");
 
 const ec2 = require("./lib/ec2");
 const rds = require("./lib/rds");
-
-const yargs = require("yargs");
 
 const DEFAULT_REGION = "us-east-1";
 const DEFAULT_PROFILE = "default";
@@ -32,6 +31,34 @@ const argv = yargs
           argv["log-file"] || "/var/log/**/*.log"
         );
       })
+      .command(
+        "run-command <command>",
+        "Run a command on all remote hosts. Interactive commands like `top` and `pdb` are not supported.",
+        async yargs => {
+          yargs.demandOption(["tag"]);
+          const argv = yargs.argv;
+          const adapter = new ec2.EC2Adapter(
+            argv.profile || DEFAULT_PROFILE,
+            argv.region || DEFAULT_REGION
+          );
+
+          adapter.runCommandByTag(argv.tag, argv._[2]);
+        }
+      )
+      .command(
+        "run-script <script-file>",
+        "Run a script by copying it to all remote hosts and running it.",
+        async yargs => {
+          yargs.demandOption(["tag"]);
+          const argv = yargs.argv;
+          const adapter = new ec2.EC2Adapter(
+            argv.profile || DEFAULT_PROFILE,
+            argv.region || DEFAULT_REGION
+          );
+
+          adapter.runScriptByTag(argv.tag, argv._[2]);
+        }
+      )
       .demand(1, "Must provide a valid subcommand.");
   })
   .command("rds", "Access RDS logs.", yargs => {
