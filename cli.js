@@ -59,6 +59,16 @@ const argv = yargs
           adapter.runScriptByTag(argv.tag, argv._[2]);
         }
       )
+      .command("ssh", "SSH into one of the instances.", async yargs => {
+        yargs.demandOption(["instance-id"]);
+        const argv = yargs.argv;
+        const adapter = new ec2.EC2Adapter(
+          argv.profile || DEFAULT_PROFILE,
+          argv.region || DEFAULT_REGION
+        );
+
+        adapter.startSSHByInstanceId(argv["instance-id"]);
+      })
       .command(
         "ssh-any",
         "SSH into any of the instances with a specific tag.",
