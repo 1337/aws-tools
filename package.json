@@ -21,7 +21,7 @@
   "dependencies": {
     "aws-sdk": "^2.456.0",
     "fs-extra": "^8.1.0",
-    "lodash": "^4.17.19",
+    "lodash": "^4.17.21",
     "prompt": "^1.0.0",
     "shelljs": "^0.8.3",
     "uuid": "^3.3.2",
